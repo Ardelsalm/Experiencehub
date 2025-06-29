@@ -131,7 +131,9 @@
                 <div class="mt-8 text-center">
                     <p class="text-lg text-gray-700">Projected Cumulative Investor Profit over 5 years:</p>
                     <p id="cumulativeProfitDisplay" class="text-3xl font-bold text-brand-secondary mt-2">₹0</p>
-                    <p class="text-sm text-gray-500 mt-4">Projections are estimates. Actual results may vary. Opportunity to break even the total investment in approximately 5 years.</p>
+                    <p class="text-lg text-gray-700 mt-4">Projected Break-even Time:</p>
+                    <p id="breakEvenDisplay" class="text-3xl font-bold text-brand-primary mt-2">Calculating...</p>
+                    <p class="text-sm text-gray-500 mt-4">Projections are estimates. Actual results may vary.</p>
                 </div>
             </div>
         </section>
@@ -264,9 +266,9 @@
         opexPercent: 0.16, // Fixed at 16%
         nonOpexPercent: 0.02, // Added as 2%
         marketingSpendMonthly: 100000, // 1 Lakh monthly marketing spend
-        gpMargin: 0.375, // Maintained at 37.5% (midpoint of 35-40%)
+        gpMargin: 0.375, // GP Margin as 37.5% (applied to ex-GST revenue)
         investorProfitShare: 0.70, // Investor's Share of Net Profit is up to 70%.
-        royaltyRate: 0.07, // Royalty is at just 7% of Gross Sales
+        royaltyRate: 0.07, // Royalty is at just 7% of Gross Sales (applied to ex-GST revenue)
         gstRate: 0.18 // Assumed GST rate for calculations (18%)
     };
 
@@ -279,24 +281,44 @@
     function calculateROI(monthlyRevenueIncludingGST) {
         const data = [];
         let cumulativeProfit = 0;
+        let breakEvenMonth = -1;
 
-        for (let year = 1; year <= 5; year++) {
-            // Calculate annual revenue EXCLUDING GST
-            const annualRevenueExcludingGST = (monthlyRevenueIncludingGST / (1 + ROI_CONFIG.gstRate)) * 12;
+        for (let month = 1; month <= 60; month++) { // Calculate up to 5 years (60 months)
+            const monthlyRevenueExcludingGST = monthlyRevenueIncludingGST / (1 + ROI_CONFIG.gstRate);
 
-            const annualGrossProfit = annualRevenueExcludingGST * ROI_CONFIG.gpMargin;
-            const annualOpex = annualRevenueExcludingGST * ROI_CONFIG.opexPercent;
-            const annualMarketing = ROI_CONFIG.marketingSpendMonthly * 12;
-            const annualNonOpex = annualRevenueExcludingGST * ROI_CONFIG.nonOpexPercent;
-            const annualRoyalty = annualRevenueExcludingGST * ROI_CONFIG.royaltyRate;
+            const monthlyGrossProfit = monthlyRevenueExcludingGST * ROI_CONFIG.gpMargin;
+            const monthlyOpex = monthlyRevenueExcludingGST * ROI_CONFIG.opexPercent;
+            const monthlyMarketing = ROI_CONFIG.marketingSpendMonthly;
+            const monthlyNonOpex = monthlyRevenueExcludingGST * ROI_CONFIG.nonOpexPercent;
+            const monthlyRoyalty = monthlyRevenueExcludingGST * ROI_CONFIG.royaltyRate;
             
-            const annualNetProfit = annualGrossProfit - annualOpex - annualMarketing - annualNonOpex - annualRoyalty;
-            const investorShare = annualNetProfit * ROI_CONFIG.investorProfitShare;
+            const monthlyNetProfit = monthlyGrossProfit - monthlyOpex - monthlyMarketing - monthlyNonOpex - monthlyRoyalty;
+            const investorShareMonthly = monthlyNetProfit * ROI_CONFIG.investorProfitShare;
             
-            cumulativeProfit += investorShare;
-            data.push(cumulativeProfit);
+            cumulativeProfit += investorShareMonthly;
+            
+            if (breakEvenMonth === -1 && cumulativeProfit >= ROI_CONFIG.totalInvestment) {
+                breakEvenMonth = month;
+            }
+
+            if (month % 12 === 0) { // Store annual cumulative profit for chart
+                data.push(cumulativeProfit);
+            }
         }
-        return data;
+
+        let breakEvenDisplay = '';
+        if (breakEvenMonth !== -1) {
+            const years = Math.floor(breakEvenMonth / 12);
+            const months = breakEvenMonth % 12;
+            breakEvenDisplay = `${years} years`;
+            if (months > 0) {
+                breakEvenDisplay += ` and ${months} months`;
+            }
+        } else {
+            breakEvenDisplay = 'Not within 5 years';
+        }
+
+        return { profitData: data, breakEvenTime: breakEvenDisplay };
     }
 
     // ROI Projection Chart
@@ -309,13 +331,15 @@
 
     function updateRoiChart(scenario) {
         const monthlyRevenue = salesScenarios[scenario];
-        const roiData = calculateROI(monthlyRevenue);
-        const cumulativeFinalProfit = roiData[roiData.length - 1];
+        const result = calculateROI(monthlyRevenue);
+        const cumulativeFinalProfit = result.profitData[result.profitData.length - 1];
+        const breakEvenTime = result.breakEvenTime;
 
         document.getElementById('cumulativeProfitDisplay').textContent = formatCurrency(cumulativeFinalProfit);
+        document.getElementById('breakEvenDisplay').textContent = breakEvenTime;
 
         if (roiChart) {
-            roiChart.data.datasets[0].data = roiData;
+            roiChart.data.datasets[0].data = result.profitData;
             roiChart.update();
         } else {
             roiChart = new Chart(roiProjectionCtx, {
@@ -324,7 +348,7 @@
                     labels: ['Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5'],
                     datasets: [{
                         label: 'Cumulative Investor Profit',
-                        data: roiData,
+                        data: result.profitData,
                         fill: true,
                         backgroundColor: 'rgba(225, 169, 49, 0.1)', // E1A931 with opacity
                         borderColor: '#E1A931',
