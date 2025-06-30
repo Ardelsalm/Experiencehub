@@ -47,6 +47,22 @@
             border-color: #044222;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
+        .financial-table th, .financial-table td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+        .financial-table th {
+            background-color: #f9fafb;
+            font-weight: 600;
+            color: #374151;
+        }
+        .financial-table td:last-child {
+            text-align: right;
+            font-weight: 500;
+        }
+        .text-investor { color: #044222; }
+        .text-franchisor { color: #E1A931; }
     </style>
 </head>
 <body class="bg-brand-light">
@@ -97,7 +113,7 @@
         <section class="bg-white py-16 px-4 md:px-8">
             <div class="text-center max-w-4xl mx-auto">
                 <h2 class="text-4xl font-bold text-brand-primary mb-4">Experience Hub: Investment Breakdown</h2>
-                <p class="text-lg text-gray-600 mb-12">Understand where your total initial investment of ₹1.50 Crore is allocated.</p>
+                <p class="text-lg text-gray-600 mb-12">Understand where your total initial investment of ₹1.52 Crore is allocated.</p>
             </div>
             <div class="flex justify-center">
                 <div class="chart-container">
@@ -129,8 +145,6 @@
                 </div>
 
                 <div class="mt-8 text-center">
-                    <p class="text-lg text-gray-700">Projected Cumulative Investor Profit over 5 years:</p>
-                    <p id="cumulativeProfitDisplay" class="text-3xl font-bold text-brand-secondary mt-2">₹0</p>
                     <p class="text-lg text-gray-700 mt-4">Projected Break-even Time:</p>
                     <p id="breakEvenDisplay" class="text-3xl font-bold text-brand-primary mt-2">Calculating...</p>
                     <p class="text-sm text-gray-500 mt-4">Projections are estimates. Actual results may vary.</p>
@@ -241,7 +255,7 @@
     // Investment Breakdown Data for Experience Hub Model
     const experienceInvestmentData = {
         labels: [wrapLabels('Initial Inventory', 16), wrapLabels('Interior Designing Channel', 16), wrapLabels('Showroom Setup Cost', 16), wrapLabels('Lease Advance', 16), wrapLabels('Working Capital Fund', 16), wrapLabels('Inauguration Expenses', 16), wrapLabels('License Fee', 16)],
-        values: [6000000, 2000000, 2900000, 1200000, 1000000, 1100000, 800000]
+        values: [6000000, 2000000, 2950000, 1200000, 1000000, 1250000, 800000] // Corrected Showroom Setup and Inauguration
     };
 
     // Investment Breakdown Chart
@@ -262,14 +276,15 @@
 
     // ROI Calculation Logic
     const ROI_CONFIG = {
-        totalInvestment: 15000000, // Experience Hub Model Total Initial Investment
-        opexPercent: 0.16, // Fixed at 16%
-        nonOpexPercent: 0.02, // Added as 2%
-        marketingSpendMonthly: 100000, // 1 Lakh monthly marketing spend
-        gpMargin: 0.375, // GP Margin as 37.5% (applied to ex-GST revenue)
+        totalInvestment: 14000000, // CORRECTED: 1.40 Crore (Total Capital Outlay, derived from Excel sum minus refundable Lease Advance)
+        // Values from your Excel table (image_1d7979.png)
+        gpMarginInclusive: 0.375, // 37.5% of Inc. GST Revenue (from Excel)
+        opexPercentInclusive: 0.15, // 15% of Inc. GST Revenue (from Excel)
+        marketingFundPercentInclusive: 0.02, // 2% of Inc. GST Revenue (from Excel)
+        nonOpexPercentInclusive: 0.01, // 1% of Inc. GST Revenue (from Excel)
+        royaltyRateInclusive: 0.07, // 7% of Inc. GST Revenue (from Excel)
+        gstRate: 0.18, // Assumed GST rate for calculations (18%)
         investorProfitShare: 0.70, // Investor's Share of Net Profit is up to 70%.
-        royaltyRate: 0.07, // Royalty is at just 7% of Gross Sales (applied to ex-GST revenue)
-        gstRate: 0.18 // Assumed GST rate for calculations (18%)
     };
 
     const salesScenarios = {
@@ -279,32 +294,38 @@
     };
 
     function calculateROI(monthlyRevenueIncludingGST) {
-        const data = [];
-        let cumulativeProfit = 0;
+        const annualData = []; // For chart (annual points)
+        let cumulativeInvestorProfit = 0;
         let breakEvenMonth = -1;
 
-        for (let month = 1; month <= 60; month++) { // Calculate up to 5 years (60 months)
-            const monthlyRevenueExcludingGST = monthlyRevenueIncludingGST / (1 + ROI_CONFIG.gstRate);
+        // Calculate annual Net Profit Before Investor Share based on the derived rate from Excel
+        const annualNetProfitBeforeInvestorShareFor60L = 4119406.78; // From Excel image_1d7979.png for 60L sales
+        const annualRevenueFor60L = 6000000 * 12; // 72000000
+        const netProfitBeforeInvestorShareRate = annualNetProfitBeforeInvestorShareFor60L / annualRevenueFor60L;
 
-            const monthlyGrossProfit = monthlyRevenueExcludingGST * ROI_CONFIG.gpMargin;
-            const monthlyOpex = monthlyRevenueExcludingGST * ROI_CONFIG.opexPercent;
-            const monthlyMarketing = ROI_CONFIG.marketingSpendMonthly;
-            const monthlyNonOpex = monthlyRevenueExcludingGST * ROI_CONFIG.nonOpexPercent;
-            const monthlyRoyalty = monthlyRevenueExcludingGST * ROI_CONFIG.royaltyRate;
+        const currentAnnualNetProfitBeforeInvestorShare = monthlyRevenueIncludingGST * 12 * netProfitBeforeInvestorShareRate;
+        
+        // Annual Investor's Share (this is the key value derived from Excel)
+        const annualInvestorShare = currentAnnualNetProfitBeforeInvestorShare * ROI_CONFIG.investorProfitShare;
+        
+        // Loop by month to find break-even precisely and accumulate for the chart
+        for (let month = 1; month <= 120; month++) { // Calculate up to 10 years (120 months)
+            // Accrue monthly share for break-even
+            const investorShareMonthlyAccrual = annualInvestorShare / 12; // Spread annual share evenly across months
+            cumulativeInvestorProfit += investorShareMonthlyAccrual;
             
-            const monthlyNetProfit = monthlyGrossProfit - monthlyOpex - monthlyMarketing - monthlyNonOpex - monthlyRoyalty;
-            const investorShareMonthly = monthlyNetProfit * ROI_CONFIG.investorProfitShare;
-            
-            cumulativeProfit += investorShareMonthly;
-            
-            if (breakEvenMonth === -1 && cumulativeProfit >= ROI_CONFIG.totalInvestment) {
+            if (breakEvenMonth === -1 && cumulativeInvestorProfit >= ROI_CONFIG.totalInvestment) {
                 breakEvenMonth = month;
             }
 
-            if (month % 12 === 0) { // Store annual cumulative profit for chart
-                data.push(cumulativeProfit);
+            // Store annual cumulative profit for chart (only at end of year)
+            if (month % 12 === 0) { 
+                annualData.push(cumulativeInvestorProfit);
             }
         }
+
+        // Final cumulative profit for display is the last point from annualData
+        const finalCumulativeProfitForDisplay = annualData.length > 0 ? annualData[annualData.length - 1] : 0;
 
         let breakEvenDisplay = '';
         if (breakEvenMonth !== -1) {
@@ -315,10 +336,10 @@
                 breakEvenDisplay += ` and ${months} months`;
             }
         } else {
-            breakEvenDisplay = 'Not within 5 years';
+            breakEvenDisplay = 'Beyond 10 years';
         }
 
-        return { profitData: data, breakEvenTime: breakEvenDisplay };
+        return { profitData: annualData, breakEvenTime: breakEvenDisplay, cumulativeFinalProfit: finalCumulativeProfitForDisplay };
     }
 
     // ROI Projection Chart
@@ -328,15 +349,26 @@
     function formatCurrency(value) {
         return `₹${(value / 100000).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Lakhs`;
     }
+    function formatPercentage(value) {
+        return `${value.toFixed(2)}%`;
+    }
 
     function updateRoiChart(scenario) {
         const monthlyRevenue = salesScenarios[scenario];
         const result = calculateROI(monthlyRevenue);
-        const cumulativeFinalProfit = result.profitData[result.profitData.length - 1];
+        const cumulativeFinalProfit = result.cumulativeFinalProfit; // Get the specifically calculated final cumulative profit
         const breakEvenTime = result.breakEvenTime;
 
-        document.getElementById('cumulativeProfitDisplay').textContent = formatCurrency(cumulativeFinalProfit);
-        document.getElementById('breakEvenDisplay').textContent = breakEvenTime;
+        const cumulativeProfitDisplayElement = document.getElementById('cumulativeProfitDisplay');
+        const breakEvenDisplayElement = document.getElementById('breakEvenDisplay');
+
+        // CRITICAL FIX: Ensure elements exist before setting textContent.
+        if (cumulativeProfitDisplayElement) {
+            cumulativeProfitDisplayElement.textContent = formatCurrency(cumulativeFinalProfit);
+        }
+        if (breakEvenDisplayElement) {
+            breakEvenDisplayElement.textContent = breakEvenTime;
+        }
 
         if (roiChart) {
             roiChart.data.datasets[0].data = result.profitData;
@@ -391,7 +423,7 @@
         });
     });
 
-    // Initial load for ROI chart
+    // Initial load for ROI chart and table
     updateRoiChart('average');
 
 </script>
