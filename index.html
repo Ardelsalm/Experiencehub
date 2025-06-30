@@ -77,9 +77,9 @@
         <section class="bg-white text-center py-20 px-4">
             <h1 class="text-4xl md:text-6xl font-bold leading-tight mb-4 text-brand-primary">The Experience Hub Model</h1>
             <p class="text-xl md:text-2xl text-gray-700">Your Ultimate Destination for Integrated Home Furnishing & Design</p>
-            <div class="mt-8">
-                <a href="#overview" class="bg-brand-primary text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-green-800 transition shadow-lg mr-4">Explore Model</a>
-                <a href="#roi-calculator" class="bg-brand-secondary text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-yellow-600 transition shadow-lg">Calculate Your ROI</a>
+            <div class="mt-8 flex flex-col md:flex-row items-center justify-center space-y-4 md:space-y-0 md:space-x-4">
+                <a href="#overview" class="bg-brand-primary text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-green-800 transition shadow-lg w-full md:w-auto">Explore Model</a>
+                <a href="#roi-calculator" class="bg-brand-secondary text-white font-bold py-3 px-6 rounded-lg text-lg hover:bg-yellow-600 transition shadow-lg w-full md:w-auto">Calculate Your ROI</a>
             </div>
         </section>
 
@@ -363,6 +363,7 @@
         const breakEvenDisplayElement = document.getElementById('breakEvenDisplay');
 
         // CRITICAL FIX: Ensure elements exist before setting textContent.
+        // This prevents the TypeError.
         if (cumulativeProfitDisplayElement) {
             cumulativeProfitDisplayElement.textContent = formatCurrency(cumulativeFinalProfit);
         }
